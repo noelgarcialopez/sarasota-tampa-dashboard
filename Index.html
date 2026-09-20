@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Sarasota-Tampa Market KPI Dashboard — by location, month, and category</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#ffffff; --ink:#111827; --sub:#6b7280; --line:#e5e7eb;
+    --navy:#0c447c; --navy-l:#e6f1fb; --teal:#0f6e56; --teal-l:#e1f5ee;
+    --coral:#993c1d; --coral-l:#faece7; --purple:#3c3489; --purple-l:#eeedfe;
+    --red:#a32d2d; --red-l:#fcebeb; --gray:#5f5e5a; --gray-l:#f1efe8; --gold:#8a6d0b; --gold-l:#faf1d6;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 16px 60px;}
+  @media(min-width:700px){ .wrap{padding:28px 24px 60px;} }
+  header{margin-bottom:16px;}
+  h1{font-size:19px;font-weight:600;margin:0 0 4px;}
+  @media(min-width:700px){ h1{font-size:22px;} }
+  .subtitle{font-size:12.5px;color:var(--sub);line-height:1.5;}
+  @media(min-width:700px){ .subtitle{font-size:13px;} }
+  .updated{font-size:11px;color:var(--sub);margin-top:4px;}
+
+  .loctabs, .cattabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:thin;}
+  .loctabs::-webkit-scrollbar, .cattabs::-webkit-scrollbar{height:4px;}
+  .loctab{border:1px solid var(--line);background:#fff;border-radius:20px;padding:7px 14px;font-size:12.5px;cursor:pointer;color:var(--sub);white-space:nowrap;flex:none;}
+  .loctab.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+  .cattabs{margin-bottom:18px;}
+  .cattab{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;font-size:11.5px;cursor:pointer;color:var(--sub);white-space:nowrap;flex:none;}
+  .cattab.active{color:#fff;border-color:transparent;}
+
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
+  @media(min-width:600px){ .grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;} }
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;}
+  .card .label{font-size:11px;color:var(--sub);margin-bottom:5px;}
+  .card .value{font-size:18px;font-weight:600;}
+  @media(min-width:600px){ .card .value{font-size:22px;} }
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;}
+  @media(min-width:700px){ .panel{padding:18px 20px;margin-bottom:20px;} }
+  .panel h2{font-size:14px;font-weight:600;margin:0 0 4px;}
+  @media(min-width:700px){ .panel h2{font-size:15px;} }
+  .panel .sub{font-size:11.5px;color:var(--sub);margin-bottom:12px;line-height:1.5;}
+
+  .best-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+  @media(min-width:700px){ .best-grid{grid-template-columns:repeat(4,1fr);} }
+  .best-card{border-radius:10px;padding:12px 14px;}
+  .best-card .cname{font-size:12px;font-weight:600;margin-bottom:6px;}
+  .best-card .winner{font-size:15px;font-weight:700;margin-bottom:2px;}
+  .best-card .wscore{font-size:12px;opacity:0.85;}
+  .best-card .tie{font-size:10.5px;margin-top:4px;opacity:0.8;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  th{text-align:left;color:var(--sub);font-weight:500;padding:6px 9px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  td{padding:6px 9px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  .best{color:var(--teal);font-weight:600;}
+  .worst{color:var(--red);font-weight:600;}
+
+  canvas{max-width:100%;}
+  .metric-block{margin-bottom:20px;}
+  .metric-block:last-child{margin-bottom:0;}
+  .metric-title{font-size:12.5px;font-weight:600;margin-bottom:8px;}
+  .metric-row{display:flex;gap:14px;flex-wrap:wrap;}
+  .metric-chart{flex:1 1 260px;min-width:240px;position:relative;height:170px;}
+  .metric-table{flex:1 1 200px;min-width:180px;}
+  .note{font-size:11.5px;color:var(--sub);margin-top:8px;line-height:1.5;}
+
+  .rec-box{border-radius:10px;padding:14px 16px;}
+  .rec-row{display:flex;gap:8px;margin-bottom:8px;font-size:13px;line-height:1.5;}
+  .rec-row:last-child{margin-bottom:0;}
+  .rec-tag{flex:none;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;padding:2px 8px;border-radius:20px;height:fit-content;white-space:nowrap;}
+  .rec-tag.s{background:var(--teal-l);color:var(--teal);}
+  .rec-tag.o{background:var(--red-l);color:var(--red);}
+  .rec-tag.a{background:var(--navy-l);color:var(--navy);}
+  .rec-tag.j{background:var(--gold-l);color:var(--gold);}
+  .story{font-size:13px;line-height:1.7;color:var(--ink);}
+  .metrics-mini{font-size:11.5px;color:var(--sub);margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Sarasota-Tampa market KPI dashboard</h1>
+  <div class="subtitle">MTM YTD 2026 · January – August, plus a partial September · by location, by month, and by Q3 (Jul-Aug) category</div>
+  <div class="updated">Source: Sarasota-Tampa Market Results MTM YTD 2026 · Categories &amp; QTR tab scoring method</div>
+</header>
+
+<div class="loctabs" id="locTabs"></div>
+
+<div id="overview"></div>
+<div id="bestPerCategory"></div>
+<div id="categoryQtrDetail"></div>
+<div id="scoringMethod"></div>
+<div id="recommendation"></div>
+
+<div class="cattabs" id="catTabs"></div>
+<div id="metricBlocks"></div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const M = {"CARS PARKED":{"monthly":{"Ritz-Carlton Sarasota":[5442,6083,7312,5844,6288,5116.63,4225.688,3767,1904],"The St. Regis Longboat Key":[3305,3925,4806,4135,5148,4280,3953,3706,1487],"Westin Sarasota":[null,null,null,4346,5831,4312,4457,4465,2447],"AC Orlando Downtown":[1566,1305,1485,1551,1218,1339,1376,1402,488],"Region":[10313,11313,13603,15876,18485,15047.630000000001,14011.688,13340,6326]},"ytd":{"Ritz-Carlton Sarasota":45982.318,"The St. Regis Longboat Key":34745,"Westin Sarasota":25858,"AC Orlando Downtown":11730,"Region":118315.318}},"CLAIMS":{"monthly":{"Ritz-Carlton Sarasota":[0,0,1,0,0,1,1,0,0],"The St. Regis Longboat Key":[0,2,1,0,1,0,0,0,0],"Westin Sarasota":[null,null,null,1,3,1,0,0,0],"AC Orlando Downtown":[0,0,0,0,1,0,0,0,0],"Region":[0,2,2,1,5,2,1,0,0]},"ytd":{"Ritz-Carlton Sarasota":3,"The St. Regis Longboat Key":4,"Westin Sarasota":5,"AC Orlando Downtown":1,"Region":13}},"CLAIMS PAID $":{"monthly":{"Ritz-Carlton Sarasota":[0,0,3857,0,0,145,0,0,null],"The St. Regis Longboat Key":[3813,5315,723,0,144,0,0,0,null],"Westin Sarasota":[null,null,null,0,8462,1159,0,0,null],"AC Orlando Downtown":[null,0,0,0,683,0,0,0,null],"Region":[3813,5315,4580,0,9289,1304,0,0,null]},"ytd":{"Ritz-Carlton Sarasota":4002,"The St. Regis Longboat Key":9995,"Westin Sarasota":9621,"AC Orlando Downtown":683,"Region":24301}},"AVG NPS":{"monthly":{"Ritz-Carlton Sarasota":[5,6,7,6,7,8,9,9,0],"The St. Regis Longboat Key":[9,9,10,9,10,9,9,10,0],"Westin Sarasota":[null,null,null,10,10,10,9,10,0],"AC Orlando Downtown":[null,7,7,7,7,7,7.5,7.5,0],"Region":[7,7.333333333333333,8,8,8.5,8.5,8.625,9.125,0]},"ytd":{"Ritz-Carlton Sarasota":7.125,"The St. Regis Longboat Key":9.375,"Westin Sarasota":9.8,"AC Orlando Downtown":7.142857142857143,"Region":8.135416666666666}},"MYSTERY SHOP":{"monthly":{"Ritz-Carlton Sarasota":[0.55,0.717,0.6,0.903,0.746,0.806,0.82,0.723,0],"The St. Regis Longboat Key":[0.69,0.971,0.97,0.97,0.922,0.831,0.61,0.78,0],"Westin Sarasota":[null,null,null,0.8,0.76,0.754,0.79,0.642,0],"AC Orlando Downtown":[0,0.525,0.75,0.95,0.6,0.565,0.738,0.754,0],"Region":[0.62,0.7376666666666667,0.7733333333333333,0.90575,0.757,0.739,0.7394999999999999,0.72475,0]},"ytd":{"Ritz-Carlton Sarasota":0.9775,"The St. Regis Longboat Key":0.9634285714285714,"Westin Sarasota":0.7492,"AC Orlando Downtown":0.6974285714285714,"Region":0.8468892857142858}},"Reviews (WOW)":{"monthly":{"Ritz-Carlton Sarasota":["N/A",0,0,1,2,4,4,3,0],"The St. Regis Longboat Key":[2,1,3,1,2,0,2,1,1],"Westin Sarasota":[null,null,null,2,0,2,2,4,4],"AC Orlando Downtown":[1,2,8,3,7,11,3,4,2],"Region":[3,3,11,7,11,17,11,12,7]},"ytd":{"Ritz-Carlton Sarasota":14,"The St. Regis Longboat Key":13,"Westin Sarasota":14,"AC Orlando Downtown":41,"Region":82}},"Overtime (WOW)":{"monthly":{"Ritz-Carlton Sarasota":[0,0,4.46,0,0,0,0,0,0],"The St. Regis Longboat Key":[0,38.04,82.69,78,63.019999999999996,4.95,7.66,4.32,0],"Westin Sarasota":[null,null,null,0,4.5,3.83,0,1.96,0],"AC Orlando Downtown":[17.64,0,0,0,0,0,0,0,0],"Region":[5.88,12.68,29.049999999999997,19.5,16.88,2.1950000000000003,1.915,1.57,0]},"ytd":{"Ritz-Carlton Sarasota":4.46,"The St. Regis Longboat Key":278.68,"Westin Sarasota":10.29,"AC Orlando Downtown":17.64,"Region":89.67}},"Labor Variation":{"monthly":{"Ritz-Carlton Sarasota":[0.02877957289231367,0.028470818825953703,0.024989252381013127,0.01827868572728991,0.020067076201823714,-0.016950607417206914,-0.021038723094139566,0.004827163598813883,-0.016247362725775344],"The St. Regis Longboat Key":[-0.020565698832528623,-0.0314018484916771,-0.014223207350710032,0.03066990508806955,-0.05177619258352456,-0.027633053553705933,-0.009952530372922153,0,-0.029339764693873338],"Westin Sarasota":[null,null,null,0.030302731259272075,0.025204581077339305,0.055854550622922966,-0.0037535607813523886,0.013829372448811161,-0.04386818697676598],"AC Orlando Downtown":[-0.06736835812304603,0.15491025402595104,0.14027916227916248,-0.018879071839361994,0.17409849624486717,0.04033296360275185,0.04593561278085795,0.0618554719373523,0.12352209837106809],"Region":[-0.019718161354420328,0.050659741453409214,0.050348402436488526,0.015093062558817386,0.04189849023512641,0.012900963313690492,0.00279769963311096,0.020128001996244337,0.008516695993663358]},"ytd":{"Ritz-Carlton Sarasota":0.008896984548760773,"The St. Regis Longboat Key":-0.019277798848859024,"Westin Sarasota":0.009696185956278393,"AC Orlando Downtown":0.08183582865995036,"Region":0.022828112033266294}},"Lot Audits":{"monthly":{"Ritz-Carlton Sarasota":[0.8817204301075269,0.8333333333333334,0.7956989247311828,0.7888888888888889,0.6774193548387096,0.6777777777777778,0.7419354838709677,0.967741935483871,0.4777777777777778],"The St. Regis Longboat Key":[0.946236559139785,0.9404761904761905,0.956989247311828,0.8666666666666667,1,1,0.7526881720430108,0.9247311827956989,0.4],"Westin Sarasota":[null,null,null,0.5066666666666667,1.053763440860215,1,1,1.096774193548387,0.4888888888888889],"AC Orlando Downtown":[0.7741935483870968,0.9404761904761905,0.8709677419354839,0.8555555555555555,1,0.9,0.9032258064516129,0.978494623655914,0.43333333333333335],"Region":[0.867383512544803,0.9047619047619048,0.8745519713261648,0.7544444444444445,0.9327956989247311,0.8944444444444445,0.8494623655913979,0.9919354838709677,0.45]},"ytd":{"Ritz-Carlton Sarasota":0.8552867383512545,"The St. Regis Longboat Key":0.9734735023041476,"Westin Sarasota":0.6432616487455197,"AC Orlando Downtown":0.9570308499743985,"Region":0.9399724782386074}},"Shift Huddles":{"monthly":{"Ritz-Carlton Sarasota":[0.6774193548387096,0.7857142857142857,0.8279569892473119,0.8777777777777778,0.8924731182795699,0.9,1,0.978494623655914,0.5333333333333333],"The St. Regis Longboat Key":[0.7419354838709677,0.7380952380952381,0.6559139784946236,0.8111111111111111,0.9032258064516129,0.9666666666666667,0.6129032258064516,0.978494623655914,0.5444444444444444],"Westin Sarasota":[null,null,null,0.5733333333333334,0.9032258064516129,1.011111111111111,1.064516129032258,1.1505376344086022,0.4777777777777778],"AC Orlando Downtown":[0.5376344086021505,0.8095238095238095,0.8387096774193549,0.7333333333333333,0.9247311827956989,0.9222222222222223,0.8817204301075269,0.989247311827957,0.4111111111111111],"Region":[0.6523297491039427,0.7777777777777777,0.7741935483870969,0.7488888888888889,0.9059139784946236,0.95,0.8897849462365591,1.0241935483870968,0.4916666666666667]},"ytd":{"Ritz-Carlton Sarasota":0.8674795186891961,"The St. Regis Longboat Key":0.8010432667690733,"Westin Sarasota":0.9405448028673835,"AC Orlando Downtown":0.8296402969790067,"Region":0.9018436379928316}},"Key Scrub":{"monthly":{"Ritz-Carlton Sarasota":[0.6666666666666666,0.7023809523809523,0.7526881720430108,0.5666666666666667,0.7204301075268817,0.7444444444444445,1.118279569892473,1.096774193548387,0.5333333333333333],"The St. Regis Longboat Key":[1,0.9523809523809523,0.946236559139785,0.9111111111111111,0.978494623655914,1,0.7419354838709677,1,0.5],"Westin Sarasota":[null,null,null,0.5333333333333333,0.8709677419354839,1,1,1.053763440860215,0.4444444444444444],"AC Orlando Downtown":[0.7741935483870968,0.9404761904761905,0.8494623655913979,0.9,0.967741935483871,0.8888888888888888,0.8924731182795699,0.956989247311828,0.43333333333333335],"Region":[0.8136200716845877,0.865079365079365,0.8494623655913979,0.7277777777777777,0.8844086021505376,0.9083333333333333,0.9381720430107527,1.0268817204301075,0.47777777777777775]},"ytd":{"Ritz-Carlton Sarasota":0.7960413466461853,"The St. Regis Longboat Key":0.9412698412698413,"Westin Sarasota":0.8916129032258064,"AC Orlando Downtown":0.8962781618023554,"Region":0.9364391321044547}},"Overnight Checklist":{"monthly":{"Ritz-Carlton Sarasota":[0.3870967741935484,0.35714285714285715,0.6774193548387096,0.7333333333333333,0.5806451612903226,0.4666666666666667,0.6129032258064516,0.8709677419354839,0.4],"The St. Regis Longboat Key":[0.7419354838709677,0.8928571428571429,0.8709677419354839,0.9666666666666667,0.7419354838709677,0.8333333333333334,0.3225806451612903,0.5161290322580645,0.4],"Westin Sarasota":[null,null,null,0.2,0.5483870967741935,0.3333333333333333,0.9032258064516129,1,0.43333333333333335],"AC Orlando Downtown":[0.8064516129032258,0.5,0.8709677419354839,0.9666666666666667,1,0.9666666666666667,0.8064516129032258,1,0.43333333333333335],"Region":[0.6451612903225806,0.5833333333333334,0.8064516129032259,0.7166666666666667,0.717741935483871,0.65,0.6612903225806452,0.8467741935483871,0.4166666666666667]},"ytd":{"Ritz-Carlton Sarasota":0.5857718894009216,"The St. Regis Longboat Key":0.7358006912442396,"Westin Sarasota":0.5969892473118279,"AC Orlando Downtown":0.8646505376344087,"Region":0.7034274193548388}},"Facility Walk-thru":{"monthly":{"Ritz-Carlton Sarasota":[0.5,1,0,0.5,0,0,0,0,0],"The St. Regis Longboat Key":[0.25,0.25,0,0,0,0,0,0,0],"Westin Sarasota":[null,null,null,0,0.5,0,0,0,0],"AC Orlando Downtown":[0,0.5,0.75,0.75,1,0.75,0.75,1,0.75],"Region":[0.375,0.5833333333333334,0.25,0.3125,0.375,0.1875,0.1875,0.25,0.1875]},"ytd":{"Ritz-Carlton Sarasota":0.25,"The St. Regis Longboat Key":0.0625,"Westin Sarasota":0.1,"AC Orlando Downtown":0.6875,"Region":0.2838541666666667}},"AWEstruck Audits":{"monthly":{"Ritz-Carlton Sarasota":[0.45454545454545453,1,0.6,1,1,0.125,0.25,1,0.4074074074074074],"The St. Regis Longboat Key":[0.7692307692307693,1,1,1,1,1,0.7777777777777778,1,0.65],"Westin Sarasota":[null,null,null,0.9,1,1,1,1,0.1875],"AC Orlando Downtown":[0,0.47058823529411764,1,1,1,1,1,0.8666666666666667,0.4],"Region":[0.6118881118881119,0.823529411764706,0.8666666666666667,0.975,1,0.78125,0.7569444444444444,0.9666666666666667,0.4112268518518518]},"ytd":{"Ritz-Carlton Sarasota":0.6786931818181818,"The St. Regis Longboat Key":0.9433760683760684,"Westin Sarasota":0.9800000000000001,"AC Orlando Downtown":0.7921568627450981,"Region":0.8991465191603061}},"Driver Assessments":{"monthly":{"Ritz-Carlton Sarasota":[0.45454545454545453,0.9090909090909091,0.6,1,1,0.625,0.20833333333333334,1,0.4444444444444444],"The St. Regis Longboat Key":[0.7777777777777778,1,0.9473684210526315,1,1,1,1,0.8823529411764706,0.05],"Westin Sarasota":[null,null,null,0.6,1,0.85,1,1,0.625],"AC Orlando Downtown":[0.05263157894736842,1,1,1,1,1,1,0.8,0.8],"Region":[0.42831827042353354,0.9696969696969697,0.8491228070175438,0.9,1,0.86875,0.8020833333333333,0.9205882352941177,0.4798611111111111]},"ytd":{"Ritz-Carlton Sarasota":0.724621212121212,"The St. Regis Longboat Key":0.95093739250086,"Westin Sarasota":0.89,"AC Orlando Downtown":0.856578947368421,"Region":0.9023025908595761}},"Payroll on RSS":{"monthly":{"Ritz-Carlton Sarasota":[null,null,null,null,null,null,null,null,null],"The St. Regis Longboat Key":[null,null,null,null,null,null,null,null,null],"Westin Sarasota":[null,null,null,null,null,null,null,null,null],"AC Orlando Downtown":[null,null,null,null,null,null,null,null,null],"Region":[0,0,0,0,0,0,0,0,0]},"ytd":{"Ritz-Carlton Sarasota":0,"The St. Regis Longboat Key":0,"Westin Sarasota":0,"AC Orlando Downtown":0,"Region":0}},"Car Movements":{"monthly":{"Ritz-Carlton Sarasota":[21768,24332,29248,23376,25152,20466.52,16902.752,15068,7616],"The St. Regis Longboat Key":[13220,15700,19224,16540,20592,17120,15812,14824,5948],"Westin Sarasota":[null,null,null,17384,23324,17248,17828,17860,9788],"AC Orlando Downtown":[6264,5220,5940,6204,4872,5356,5504,5608,1952],"Region":[41252,45252,54412,63504,73940,60190.520000000004,56046.752,53360,25304]},"ytd":{"Ritz-Carlton Sarasota":183929.272,"The St. Regis Longboat Key":138980,"Westin Sarasota":103432,"AC Orlando Downtown":46920,"Region":473261.272}}};
+
+const LOCS = ["Ritz-Carlton Sarasota", "The St. Regis Longboat Key", "Westin Sarasota", "AC Orlando Downtown"];
+const REGION = "Region";
+const ALL = [...LOCS, REGION];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep"];
+
+const CATEGORY_MAP = {
+  "Protection is My Priority": { color:"navy", metrics:["CLAIMS","Lot Audits","Shift Huddles","Key Scrub","Facility Walk-thru","AWEstruck Audits","Overnight Checklist","Driver Assessments"] },
+  "They Say WOW": { color:"teal", metrics:["MYSTERY SHOP","Reviews (WOW)"] },
+  "Make them LOVE us": { color:"coral", metrics:["AVG NPS"] },
+  "I GOT This": { color:"purple", metrics:["Overtime (WOW)","CLAIMS PAID $"] },
+  "Other operating metrics": { color:"gray", metrics:["CARS PARKED","Labor Variation","Payroll on RSS","Car Movements"] }
+};
+const CAT_NAMES = Object.keys(CATEGORY_MAP);
+
+const UNIT = {
+  "CARS PARKED":"num","CLAIMS":"num","CLAIMS PAID $":"usd","AVG NPS":"score","MYSTERY SHOP":"pct",
+  "Reviews (WOW)":"num","Overtime (WOW)":"num","Labor Variation":"pct","Lot Audits":"pct","Shift Huddles":"pct",
+  "Key Scrub":"pct","Overnight Checklist":"pct","Facility Walk-thru":"pct","AWEstruck Audits":"pct",
+  "Driver Assessments":"pct","Payroll on RSS":"usd","Car Movements":"num"
+};
+const BETTER = {
+  "CARS PARKED":"high","CLAIMS":"low","CLAIMS PAID $":"low","AVG NPS":"high","MYSTERY SHOP":"high",
+  "Reviews (WOW)":"high","Overtime (WOW)":"low","Labor Variation":"na","Lot Audits":"high","Shift Huddles":"high",
+  "Key Scrub":"high","Overnight Checklist":"high","Facility Walk-thru":"high","AWEstruck Audits":"high",
+  "Driver Assessments":"high","Payroll on RSS":"na","Car Movements":"na"
+};
+
+// From the Categories & QTR tab scoring method — Q3 (Jul-Aug) is the finalized view for the two most recently completed months
+const Q3_SCORES = {"Westin Sarasota":{"Protection is My Priority":0.9251152073732718,"They Say WOW":0.433,"Make them LOVE us":0.95,"I GOT This":0.9181969949916527,"overall":0.8065780505912311},"AC Orlando Downtown":{"Protection is My Priority":0.9580453149001537,"They Say WOW":0.4605,"Make them LOVE us":0.75,"I GOT This":1,"overall":0.7921363287250385},"Ritz-Carlton Sarasota":{"Protection is My Priority":0.3439420122887865,"They Say WOW":0.47324999999999995,"Make them LOVE us":0.9,"I GOT This":1,"overall":0.6792980030721967},"The St. Regis Longboat Key":{"Protection is My Priority":0.8396283244480588,"They Say WOW":0.385,"Make them LOVE us":0.95,"I GOT This":0.5,"overall":0.6686570811120147}};
+
+const RECS = {"Westin Sarasota":{"strength":"Make them LOVE us","strengthPct":"95.0%","opportunity":"They Say WOW","action":"1) Complete September Mystery Shop and NPS inputs;  2) convert review activity into a stronger They Say WOW result;  3) restore audit completion above the current 69.0% while sustaining zero claims, paid claims, and overtime.","claims":0,"claimsCost":0,"ot":1.96,"overall":"Q3 (Jul-Aug) overall 80.7%, rank #1.","august":"August overall 78.1%, rank #3."},"AC Orlando Downtown":{"strength":"I GOT This","strengthPct":"100.0%","opportunity":"They Say WOW","action":"1) Complete September Mystery Shop and NPS reporting;  2) increase recognized guest reviews;  3) sustain zero claims/overtime and recover audit completion from the current 76.2% toward the Q3 level.","claims":0,"claimsCost":0,"ot":0,"overall":"Q3 (Jul-Aug) overall 79.2%, rank #2.","august":"August overall 79.9%, rank #2."},"Ritz-Carlton Sarasota":{"strength":"I GOT This","strengthPct":"100.0%","opportunity":"Protection is My Priority","action":"1) Generate and recognize guest reviews;  2) complete September Mystery Shop and NPS inputs;  3) lift audit completion from the current 70.0% while protecting zero claims, zero paid claims, and zero overtime.","claims":1,"claimsCost":0,"ot":0,"overall":"Q3 (Jul-Aug) overall 67.9%, rank #3.","august":"August overall 81.3%, rank #1."},"The St. Regis Longboat Key":{"strength":"Make them LOVE us","strengthPct":"95.0%","opportunity":"They Say WOW","action":"1) Build review volume and complete Mystery Shop/NPS reporting;  2) preserve the September zero-claim position;  3) prevent overtime from returning while raising current audit completion beyond 68.2%.","claims":0,"claimsCost":0,"ot":11.98,"overall":"Q3 (Jul-Aug) overall 66.9%, rank #4.","august":"August overall 69.8%, rank #4."}};
+
+const REGION_STORY = "Q3 (Jul\u2013Aug) is the finalized view for the two most recently completed months. Westin Sarasota leads at 80.7% overall (rank #1), the biggest Q2-to-Q3 mover in the market at +24.9 points after finishing Q2 in 4th place. They Say WOW is the shared opportunity area at three of the four locations \u2014 Ritz-Carlton Sarasota is the exception, where Protection is My Priority is the lowest-scoring Q3 category following a claim and a dip in audit completion. Every location reported zero paid claims in Q3, and only The St. Regis Longboat Key (11.98 hrs) and Westin Sarasota (1.96 hrs) logged any overtime. September figures shown throughout this dashboard are a partial month-to-date view \u2014 AVG NPS is pending everywhere, holding the Make them LOVE us category and the full Overall score open until the month closes.";
+
+// Full Categories & QTR tab contents — Q1, Q2, Q3(Jul-Aug), August, September scores + quarter movement + strength/opportunity table
+const CATQTR = {"q1":[{"loc":"AC Orlando Downtown","protection":0.8401494440447372,"wow":0.41041666666666665,"love":0.7,"igt":0.9269444214362628,"overall":0.7193776330369166,"rank":1,"keyDriver":"I GOT This","lowest":"They Say WOW"},{"loc":"Ritz-Carlton Sarasota","protection":0.6634147598433313,"wow":0.31116666666666665,"love":0.6,"igt":0.7857621045081697,"overall":0.5900858827545419,"rank":2,"keyDriver":"I GOT This","lowest":"They Say WOW"},{"loc":"The St. Regis Longboat Key","protection":0.3899619415627177,"wow":0.48850000000000005,"love":0.9333333333333333,"igt":0,"overall":0.45294881872401277,"rank":3,"keyDriver":"Make them LOVE us","lowest":"I GOT This"}],"q2":[{"loc":"AC Orlando Downtown","protection":0.8649001536098311,"wow":0.5275,"love":0.7,"igt":0.9645047292381249,"overall":0.764226220711989,"rank":1,"keyDriver":"I GOT This","lowest":"They Say WOW"},{"loc":"Ritz-Carlton Sarasota","protection":0.7303934118450248,"wow":0.4675,"love":0.7,"igt":0.9924644007899387,"overall":0.7225894531587409,"rank":2,"keyDriver":"I GOT This","lowest":"They Say WOW"},{"loc":"The St. Regis Longboat Key","protection":0.8042669397508108,"wow":0.47883333333333333,"love":0.9333333333333333,"igt":0.49251637043966323,"overall":0.6772374942142851,"rank":3,"keyDriver":"Make them LOVE us","lowest":"They Say WOW"},{"loc":"Westin Sarasota","protection":0.3409344598054275,"wow":0.419,"love":1,"igt":0.4714667397410427,"overall":0.5578502998866175,"rank":4,"keyDriver":"Make them LOVE us","lowest":"Protection is My Priority"}],"q3":[{"loc":"Westin Sarasota","protection":0.9251152073732718,"wow":0.433,"love":0.95,"igt":0.9181969949916527,"overall":0.8065780505912311,"rank":1,"keyDriver":"Make them LOVE us","lowest":"They Say WOW"},{"loc":"AC Orlando Downtown","protection":0.9580453149001537,"wow":0.4605,"love":0.75,"igt":1,"overall":0.7921363287250385,"rank":2,"keyDriver":"I GOT This","lowest":"They Say WOW"},{"loc":"Ritz-Carlton Sarasota","protection":0.3439420122887865,"wow":0.47324999999999995,"love":0.9,"igt":1,"overall":0.6792980030721967,"rank":3,"keyDriver":"I GOT This","lowest":"Protection is My Priority"},{"loc":"The St. Regis Longboat Key","protection":0.8396283244480588,"wow":0.385,"love":0.95,"igt":0.5,"overall":0.6686570811120147,"rank":4,"keyDriver":"Make them LOVE us","lowest":"They Say WOW"}],"august":[{"loc":"Ritz-Carlton Sarasota","protection":0.9155145929339478,"wow":0.4365,"love":0.9,"igt":1,"overall":0.8130036482334869,"rank":1,"keyDriver":"I GOT This","lowest":"They Say WOW"},{"loc":"AC Orlando Downtown","protection":0.9708141321044547,"wow":0.477,"love":0.75,"igt":1,"overall":0.7994535330261137,"rank":2,"keyDriver":"I GOT This","lowest":"They Say WOW"},{"loc":"Westin Sarasota","protection":0.9285714285714286,"wow":0.42100000000000004,"love":1,"igt":0.7731481481481481,"overall":0.7806798941798943,"rank":3,"keyDriver":"Make them LOVE us","lowest":"They Say WOW"},{"loc":"The St. Regis Longboat Key","protection":0.8786934128490107,"wow":0.41500000000000004,"love":1,"igt":0.5,"overall":0.6984233532122527,"rank":4,"keyDriver":"Make them LOVE us","lowest":"They Say WOW"}],"september":[{"loc":"Westin Sarasota","protection":0.689781746031746,"wow":0.2,"love":null,"igt":1,"overall":0.6299272486772487,"rank":1,"keyDriver":"I GOT This","lowest":"They Say WOW"},{"loc":"AC Orlando Downtown","protection":0.7615079365079365,"wow":0.1,"love":null,"igt":1,"overall":0.6205026455026456,"rank":2,"keyDriver":"I GOT This","lowest":"They Say WOW"},{"loc":"The St. Regis Longboat Key","protection":0.6817460317460318,"wow":0.05,"love":null,"igt":1,"overall":0.5772486772486772,"rank":3,"keyDriver":"I GOT This","lowest":"They Say WOW"},{"loc":"Ritz-Carlton Sarasota","protection":0.6997354497354498,"wow":0,"love":null,"igt":1,"overall":0.5665784832451499,"rank":4,"keyDriver":"I GOT This","lowest":"They Say WOW"}],"q1q2Movement":[{"loc":"AC Orlando Downtown","prevOverall":0.7193776330369166,"newOverall":0.764226220711989,"change":0.04484858767507238,"prevRank":1,"newRank":1,"direction":"Improved","strength":"I GOT This","opportunity":"They Say WOW"},{"loc":"Ritz-Carlton Sarasota","prevOverall":0.5900858827545419,"newOverall":0.7225894531587409,"change":0.13250357040419902,"prevRank":2,"newRank":2,"direction":"Improved","strength":"I GOT This","opportunity":"They Say WOW"},{"loc":"The St. Regis Longboat Key","prevOverall":0.45294881872401277,"newOverall":0.6772374942142851,"change":0.22428867549027237,"prevRank":3,"newRank":3,"direction":"Improved","strength":"Make them LOVE us","opportunity":"They Say WOW"}],"q2q3Movement":[{"loc":"Westin Sarasota","prevOverall":0.5578502998866175,"newOverall":0.8065780505912311,"change":0.24872775070461361,"prevRank":4,"newRank":1,"direction":"Improved","strength":"Make them LOVE us","opportunity":"They Say WOW"},{"loc":"AC Orlando Downtown","prevOverall":0.764226220711989,"newOverall":0.7921363287250385,"change":0.027910108013049495,"prevRank":1,"newRank":2,"direction":"Improved","strength":"I GOT This","opportunity":"They Say WOW"},{"loc":"Ritz-Carlton Sarasota","prevOverall":0.7225894531587409,"newOverall":0.6792980030721967,"change":-0.043291450086544225,"prevRank":2,"newRank":3,"direction":"Declined","strength":"I GOT This","opportunity":"Protection is My Priority"},{"loc":"The St. Regis Longboat Key","prevOverall":0.6772374942142851,"newOverall":0.6686570811120147,"change":-0.008580413102270423,"prevRank":3,"newRank":4,"direction":"Declined","strength":"Make them LOVE us","opportunity":"They Say WOW"}],"strengthWeakness":[{"loc":"Westin Sarasota","strength":"Make them LOVE us","why":"Make them LOVE us is a Q3 strength for Westin Sarasota at 95.0%.","opportunity":"They Say WOW","action":"Complete September Mystery Shop and NPS inputs","claims":0,"claimsCost":0,"ot":1.96,"overallRank":"80.7% / #1","signal":"They Say WOW finished at 43.3%."},{"loc":"AC Orlando Downtown","strength":"I GOT This","why":"I GOT This is a Q3 strength for AC Orlando Downtown at 100.0%.","opportunity":"They Say WOW","action":"Complete September Mystery Shop and NPS reporting","claims":0,"claimsCost":0,"ot":0,"overallRank":"79.2% / #2","signal":"They Say WOW finished at 46.1%."},{"loc":"Ritz-Carlton Sarasota","strength":"I GOT This","why":"I GOT This is a Q3 strength for Ritz-Carlton Sarasota at 100.0%.","opportunity":"Protection is My Priority","action":"Generate and recognize guest reviews","claims":1,"claimsCost":0,"ot":0,"overallRank":"67.9% / #3","signal":"Protection is My Priority finished at 34.4%."},{"loc":"The St. Regis Longboat Key","strength":"Make them LOVE us","why":"Make them LOVE us is a Q3 strength for The St. Regis Longboat Key at 95.0%.","opportunity":"They Say WOW","action":"Build review volume and complete Mystery Shop/NPS reporting","claims":0,"claimsCost":0,"ot":11.98,"overallRank":"66.9% / #4","signal":"They Say WOW finished at 38.5%."}],"storyInBrief":"Q3 (Jul-Aug) is the finalized July\u2013August view. Westin Sarasota at 80.7% (rank #1) leads the market. Every location that reported August finished with zero-to-low overtime; the largest opportunity across the market is Protection is My Priority."};
+const CATQTR_COLS = [
+  {key:"protection", label:"Protection"},
+  {key:"wow", label:"They Say WOW"},
+  {key:"love", label:"Make them LOVE us"},
+  {key:"igt", label:"I GOT This"}
+];
+
+// Scoring Method table from the top of the Categories & QTR tab
+const SCORING_METHOD = [
+  { cat:"Protection is My Priority", metrics:"Claims + capped audit completion", scoring:"Claims score = 100% when 0 claims and 0% for the highest claim count in the period; audit score averages Lot Audits, Shift Huddles, Key Scrub, Facility Walk-thru, AWEstruck, Overnight Checklist, and Driver Assessment, each capped at 100%." },
+  { cat:"They Say WOW", metrics:"Mystery Shop + Reviews", scoring:"If no Mystery Shop was performed, the month is ignored for that component." },
+  { cat:"Make them LOVE us", metrics:"AVG NPS", scoring:"NPS score = AVG NPS ÷ 10, capped at 100%." },
+  { cat:"I GOT This", metrics:"Overtime + Claims $$$", scoring:"Overtime and Claims $$$ score 100% at zero and decline toward 0% at the period maximum." }
+];
+
+function scoringMethodPanel(){
+  const container = document.getElementById("scoringMethod");
+  if(currentLoc!==REGION){
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `
+    <div class="panel">
+      <h2>Scoring method</h2>
+      <div class="sub">How each Categories &amp; QTR category is calculated, from the top of the Categories &amp; QTR tab.</div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Category</th><th>Included metrics</th><th>Direction / scoring</th></tr></thead>
+        <tbody>${SCORING_METHOD.map(r=>`
+          <tr>
+            <td>${r.cat}</td>
+            <td>${r.metrics}</td>
+            <td>${r.scoring}</td>
+          </tr>
+        `).join("")}</tbody>
+      </table></div>
+    </div>
+  `;
+}
+
+function fmt(v, unit){
+  if(v===undefined||v===null) return "—";
+  if(unit==="usd") return "$"+Math.round(v).toLocaleString();
+  if(unit==="pct") return (v*100).toFixed(1)+"%";
+  if(unit==="score") return v.toFixed(2);
+  return Math.round(v).toLocaleString();
+}
+function pct1(v){ return v===null||v===undefined ? "N/A" : (v*100).toFixed(1)+"%"; }
+
+let currentLoc = REGION;
+let currentCat = CAT_NAMES[0];
+
+const locTabsEl = document.getElementById("locTabs");
+ALL.forEach(l=>{
+  const t=document.createElement("div");
+  t.className="loctab"+(l===REGION?" active":"");
+  t.textContent = l===REGION ? "Region (all 4)" : l;
+  t.onclick=()=>{ currentLoc=l; render(); };
+  locTabsEl.appendChild(t);
+});
+
+const catTabsEl = document.getElementById("catTabs");
+CAT_NAMES.forEach(c=>{
+  const col = CATEGORY_MAP[c].color;
+  const t=document.createElement("div");
+  t.className="cattab"+(c===currentCat?" active":"");
+  t.textContent=c;
+  t.style.background = c===currentCat ? `var(--${col})` : "#fff";
+  t.onclick=()=>{ currentCat=c; render(); };
+  catTabsEl.appendChild(t);
+});
+
+function updateTabs(){
+  [...locTabsEl.children].forEach((t,i)=>t.classList.toggle("active", ALL[i]===currentLoc));
+  [...catTabsEl.children].forEach((t,i)=>{
+    const c = CAT_NAMES[i];
+    const active = c===currentCat;
+    t.classList.toggle("active", active);
+    t.style.background = active ? `var(--${CATEGORY_MAP[c].color})` : "#fff";
+  });
+}
+
+function overviewCards(){
+  const cars = M["CARS PARKED"].ytd[currentLoc];
+  const nps = M["AVG NPS"].ytd[currentLoc];
+  const shop = M["MYSTERY SHOP"].ytd[currentLoc];
+  const claims = M["CLAIMS"].ytd[currentLoc];
+  const claimsCost = M["CLAIMS PAID $"].ytd[currentLoc];
+  const ot = M["Overtime (WOW)"].ytd[currentLoc];
+  const cards = [
+    {label:"Cars parked YTD", value: fmt(cars,"num")},
+    {label:"Avg NPS YTD", value: fmt(nps,"score")+" / 10"},
+    {label:"Mystery shop YTD", value: fmt(shop,"pct")},
+    {label:"Claims YTD", value: fmt(claims,"num")+" ("+fmt(claimsCost,"usd")+")"},
+    {label:"Overtime YTD", value: fmt(ot,"num")+" hrs"},
+  ];
+  document.getElementById("overview").innerHTML =
+    '<div class="grid">'+cards.map(x=>`<div class="card"><div class="label">${x.label}</div><div class="value">${x.value}</div></div>`).join("")+'</div>';
+}
+
+function bestPerCategory(){
+  if(currentLoc!==REGION){
+    document.getElementById("bestPerCategory").innerHTML = "";
+    return;
+  }
+  const scoredCats = ["Protection is My Priority","They Say WOW","Make them LOVE us","I GOT This"];
+  const cards = scoredCats.map(cat=>{
+    const col = CATEGORY_MAP[cat].color;
+    const entries = LOCS.map(l=>({l, v:Q3_SCORES[l] ? Q3_SCORES[l][cat] : null})).filter(e=>e.v!==null && e.v!==undefined);
+    const maxV = Math.max(...entries.map(e=>e.v));
+    const winners = entries.filter(e=>Math.abs(e.v-maxV)<0.0005).map(e=>e.l);
+    return `
+      <div class="best-card" style="background:var(--${col}-l)">
+        <div class="cname" style="color:var(--${col})">${cat}</div>
+        <div class="winner" style="color:var(--${col})">${winners[0]}</div>
+        <div class="wscore" style="color:var(--${col})">${pct1(maxV)}${winners.length>1 ? " (Q3)" : " · Q3"}</div>
+        ${winners.length>1 ? `<div class="tie" style="color:var(--${col})">Tied with ${winners.slice(1).join(", ")}</div>` : ""}
+      </div>
+    `;
+  }).join("");
+  document.getElementById("bestPerCategory").innerHTML = `
+    <div class="panel">
+      <h2>Best location per category</h2>
+      <div class="sub">Q3 (July–August, finalized) category scores from the Categories &amp; QTR tab. Ties shown where locations are within rounding of each other.</div>
+      <div class="best-grid">${cards}</div>
+    </div>
+  `;
+}
+
+function catPct(v){ return v===null||v===undefined ? "N/A" : (v*100).toFixed(1)+"%"; }
+function rankClass(rank){ return rank===1 ? "best" : (rank===LOCS.length ? "worst" : ""); }
+function changeClass(v){ return v>0 ? "best" : (v<0 ? "worst" : ""); }
+
+function scoreTable(rows){
+  const sorted = rows.slice().sort((a,b)=>a.rank-b.rank);
+  return `
+    <div class="table-scroll"><table>
+      <thead><tr><th>Location</th>${CATQTR_COLS.map(c=>`<th>${c.label}</th>`).join("")}<th>Overall</th><th>Rank</th><th>Key driver</th><th>Lowest area</th></tr></thead>
+      <tbody>${sorted.map(r=>`
+        <tr>
+          <td>${r.loc}</td>
+          ${CATQTR_COLS.map(c=>`<td>${catPct(r[c.key])}</td>`).join("")}
+          <td class="${rankClass(r.rank)}">${catPct(r.overall)}</td>
+          <td class="${rankClass(r.rank)}">#${r.rank}</td>
+          <td>${r.keyDriver||"—"}</td>
+          <td>${r.lowest||"—"}</td>
+        </tr>
+      `).join("")}</tbody>
+    </table></div>
+  `;
+}
+
+function movementTable(rows){
+  const sorted = rows.slice().sort((a,b)=>a.newRank-b.newRank);
+  return `
+    <div class="table-scroll"><table>
+      <thead><tr><th>Location</th><th>Prior overall</th><th>New overall</th><th>Change</th><th>Prior rank</th><th>New rank</th><th>Direction</th><th>Strength</th><th>Opportunity</th></tr></thead>
+      <tbody>${sorted.map(r=>`
+        <tr>
+          <td>${r.loc}</td>
+          <td>${catPct(r.prevOverall)}</td>
+          <td>${catPct(r.newOverall)}</td>
+          <td class="${changeClass(r.change)}">${r.change>=0?"+":""}${(r.change*100).toFixed(1)} pts</td>
+          <td>#${r.prevRank}</td>
+          <td>#${r.newRank}</td>
+          <td class="${r.direction==="Improved"?"best":(r.direction==="Declined"?"worst":"")}">${r.direction}</td>
+          <td>${r.strength||"—"}</td>
+          <td>${r.opportunity||"—"}</td>
+        </tr>
+      `).join("")}</tbody>
+    </table></div>
+  `;
+}
+
+function strengthWeaknessTable(rows){
+  const sorted = rows.slice().sort((a,b)=>{
+    const ra = parseInt(a.overallRank.split("#")[1]), rb = parseInt(b.overallRank.split("#")[1]);
+    return ra-rb;
+  });
+  return `
+    <div class="table-scroll"><table>
+      <thead><tr><th>Location</th><th>Strength</th><th>Opportunity</th><th>Action focus</th><th>Claims</th><th>Claims $$$</th><th>OT hrs</th><th>Overall / Rank</th></tr></thead>
+      <tbody>${sorted.map(r=>`
+        <tr>
+          <td>${r.loc}</td>
+          <td title="${r.why}">${r.strength}</td>
+          <td>${r.opportunity}</td>
+          <td title="${r.signal}">${r.action}</td>
+          <td>${r.claims}</td>
+          <td>${fmt(r.claimsCost,"usd")}</td>
+          <td>${r.ot}</td>
+          <td>${r.overallRank}</td>
+        </tr>
+      `).join("")}</tbody>
+    </table></div>
+  `;
+}
+
+function septScoreTable(rows){
+  return `
+    <div class="table-scroll"><table>
+      <thead><tr><th>Location</th><th>Protection</th><th>They Say WOW</th><th>Make them LOVE us</th><th>I GOT This</th><th>Overall</th><th>Rank</th></tr></thead>
+      <tbody>${rows.map(r=>`
+        <tr>
+          <td>${r.loc}</td>
+          <td>${catPct(r.protection)}</td>
+          <td>${catPct(r.wow)}</td>
+          <td>${r.love===null||r.love===undefined ? "Pending" : catPct(r.love)}</td>
+          <td>${catPct(r.igt)}</td>
+          <td class="${rankClass(r.rank)}">${catPct(r.overall)}</td>
+          <td class="${rankClass(r.rank)}">#${r.rank}</td>
+        </tr>
+      `).join("")}</tbody>
+    </table></div>
+  `;
+}
+
+const QTR_SECTIONS = [
+  {key:"q1", title:"Q1 category scores (Jan–Mar)", type:"score"},
+  {key:"q2", title:"Q2 category scores (Apr–Jun)", type:"score"},
+  {key:"q1q2Movement", title:"Q1 → Q2 movement", type:"movement"},
+  {key:"q3", title:"Q3 (Jul–Aug) category scores — final", type:"score"},
+  {key:"q2q3Movement", title:"Q2 → Q3 (Jul–Aug) movement — final", type:"movement"},
+  {key:"august", title:"August category scores — final", type:"score"},
+  {key:"strengthWeakness", title:"Areas of strength, opportunity & action (Q3)", type:"sw"},
+  {key:"september", title:"September category scores — partial", type:"sept"}
+];
+let currentQtrSection = "q3";
+
+function categoryQtrDetail(){
+  const container = document.getElementById("categoryQtrDetail");
+  if(currentLoc!==REGION){
+    container.innerHTML = "";
+    return;
+  }
+  const tabsHtml = QTR_SECTIONS.map(s=>
+    `<div class="cattab${s.key===currentQtrSection?" active":""}" data-qtrkey="${s.key}" style="${s.key===currentQtrSection?"background:var(--navy);border-color:var(--navy);color:#fff;":""}">${s.title}</div>`
+  ).join("");
+  const section = QTR_SECTIONS.find(s=>s.key===currentQtrSection);
+  let bodyHtml;
+  if(section.type==="score") bodyHtml = scoreTable(CATQTR[section.key]);
+  else if(section.type==="movement") bodyHtml = movementTable(CATQTR[section.key]);
+  else if(section.type==="sept") bodyHtml = septScoreTable(CATQTR[section.key]) + `<div class="note">September is a partial-month snapshot. Protection, They Say WOW, and I GOT This scores are calculable now; Make them LOVE us is marked Pending until AVG NPS closes out for the month, and Overall is calculated from the categories that have reported so far.</div>`;
+  else bodyHtml = strengthWeaknessTable(CATQTR[section.key]);
+
+  container.innerHTML = `
+    <div class="panel">
+      <h2>Category &amp; quarter analysis — full Categories &amp; QTR tab</h2>
+      <div class="sub">${CATQTR.storyInBrief}</div>
+      <div class="cattabs" id="qtrTabs" style="margin-top:6px;">${tabsHtml}</div>
+      <div id="qtrSectionBody">${bodyHtml}</div>
+    </div>
+  `;
+  document.querySelectorAll('#qtrTabs .cattab').forEach(t=>{
+    t.onclick = ()=>{ currentQtrSection = t.getAttribute('data-qtrkey'); categoryQtrDetail(); };
+  });
+}
+
+function recommendationPanel(){
+  if(currentLoc===REGION){
+    document.getElementById("recommendation").innerHTML = `
+      <div class="panel">
+        <h2>Region recommendation</h2>
+        <div class="sub">Synthesized from Q2→Q3 movement and category performance across all 4 locations.</div>
+        <div class="rec-box" style="background:var(--navy-l)">
+          <div class="story">${REGION_STORY}</div>
+        </div>
+      </div>
+    `;
+  } else {
+    const r = RECS[currentLoc];
+    document.getElementById("recommendation").innerHTML = `
+      <div class="panel">
+        <h2>${currentLoc} recommendation</h2>
+        <div class="sub">Q3 (Jul-Aug) category performance and action focus, from the Categories &amp; QTR tab.</div>
+        <div class="rec-box" style="background:var(--gray-l)">
+          <div class="rec-row"><span class="rec-tag s">Strength</span><span>${r.strength} — leading Q3 category at ${r.strengthPct}.</span></div>
+          <div class="rec-row"><span class="rec-tag o">Opportunity</span><span>${r.opportunity} — biggest Q3 gap.</span></div>
+          <div class="rec-row"><span class="rec-tag a">Action</span><span>${r.action}</span></div>
+          <div class="rec-row"><span class="rec-tag j">Q3</span><span>${r.overall}</span></div>
+          <div class="rec-row"><span class="rec-tag j">Aug</span><span>${r.august}</span></div>
+          <div class="metrics-mini">Q3 claims: ${r.claims} · Q3 claims $$$: ${fmt(r.claimsCost,"usd")} · Q3 overtime: ${r.ot} hrs</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+let charts = [];
+function destroyCharts(){ charts.forEach(c=>c.destroy()); charts=[]; }
+
+function metricBlock(name, idx){
+  const unit = UNIT[name];
+  const monthly = M[name].monthly[currentLoc];
+  const ytd = M[name].ytd;
+  const canvasId = "chart_"+idx;
+  const showLine = monthly.some(v=>v!==null);
+  const rankable = LOCS.map(l=>({l, v: ytd[l]})).filter(r=>r.v!==null && r.v!==undefined);
+  let sorted = rankable.slice();
+  sorted.sort((a,b)=>b.v-a.v);
+  const tableRows = sorted.map((r,i)=>`<tr><td>${i+1}. ${r.l}</td><td>${fmt(r.v,unit)}</td></tr>`).join("");
+  return `
+    <div class="metric-block">
+      <div class="metric-title">${name}${currentLoc!==REGION ? " — "+currentLoc+" · YTD "+fmt(ytd[currentLoc],unit) : ""}</div>
+      <div class="metric-row">
+        <div class="metric-chart">
+          <canvas id="${canvasId}" role="img" aria-label="Monthly ${name} trend for ${currentLoc}, January through September 2026">${showLine ? monthly.filter(v=>v!==null).join(", ") : "No monthly data available"}</canvas>
+        </div>
+        <div class="metric-table table-scroll">
+          <table><thead><tr><th>Rank (YTD)</th><th>Value</th></tr></thead><tbody>${tableRows || "<tr><td colspan=2>No data</td></tr>"}</tbody></table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function drawMetricChart(name, idx){
+  const unit = UNIT[name];
+  const canvas = document.getElementById("chart_"+idx);
+  if(!canvas) return;
+  const data = M[name].monthly[currentLoc];
+  const regionData = M[name].monthly[REGION];
+  const datasets = [{
+    label: currentLoc, data, borderColor:"#0c447c", backgroundColor:"rgba(12,68,124,0.08)",
+    borderWidth:2, pointRadius:3, spanGaps:true, tension:0.25, fill:currentLoc===REGION
+  }];
+  if(currentLoc!==REGION){
+    datasets.push({label:"Region", data:regionData, borderColor:"#888780", borderWidth:1.5,
+      borderDash:[4,4], pointRadius:0, spanGaps:true, tension:0.25, fill:false});
+  }
+  const c = new Chart(canvas, {
+    type:"line",
+    data:{ labels:MONTHS, datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:"index", intersect:false},
+      plugins:{ legend:{display: currentLoc!==REGION, labels:{boxWidth:10,font:{size:11}}},
+        tooltip:{ callbacks:{ label: ctx => ctx.dataset.label+": "+fmt(ctx.raw, unit) } } },
+      scales:{
+        y:{ grid:{color:"#e1e0d9"}, ticks:{font:{size:10}, callback: v => unit==="pct" ? (v*100).toFixed(0)+"%" : (unit==="usd" ? "$"+v.toLocaleString() : v) } },
+        x:{ grid:{display:false}, ticks:{font:{size:10}} }
+      }
+    }
+  });
+  charts.push(c);
+}
+
+function render(){
+  updateTabs();
+  overviewCards();
+  bestPerCategory();
+  categoryQtrDetail();
+  scoringMethodPanel();
+  recommendationPanel();
+  destroyCharts();
+  const metrics = CATEGORY_MAP[currentCat].metrics;
+  const col = CATEGORY_MAP[currentCat].color;
+  document.getElementById("metricBlocks").innerHTML = `
+    <div class="panel">
+      <h2 style="color:var(--${col})">${currentCat}</h2>
+      <div class="sub">${currentLoc===REGION ? "All 4 locations, monthly trend + YTD rank" : currentLoc+" vs region average, monthly trend"}</div>
+      ${metrics.map((m,i)=>metricBlock(m,i)).join("")}
+      <div class="note">Blank points mean no data was recorded that month (Westin Sarasota opened operations in Q2, so January–March are blank across its metrics). Per the source workbook, September is a partial month-to-date view — figures will shift as the month closes, and AVG NPS has not yet been reported for September at any location.</div>
+    </div>
+  `;
+  metrics.forEach((m,i)=>drawMetricChart(m,i));
+}
+
+render();
+</script>
+</body>
+</html>
